@@ -11,6 +11,7 @@ from utils import load_obj_tsv
 
 import sys
 import csv
+from itertools import islice
 
 TINY_IMG_NUM = 512
 FAST_IMG_NUM = 5000
@@ -42,9 +43,11 @@ class NLVR2Dataset:
                     data_annotations[temp_id] = [p['caption']]
 
         self.data = data_annotations
+        with open('data_annotations.json', 'w') as f:
+            json.dump(data_annotations, f)
 
         print("Length of data annotations : ",len(data_annotations))
-        print("Data annotations : ", data_annotations[203564])
+        #print("Data annotations : ", data_annotations[203564])
 
     def __len__(self):
         return len(self.data)
@@ -62,20 +65,21 @@ class NLVR2TorchDataset(Dataset):
     def __init__(self, dataset: NLVR2Dataset):
         super().__init__()
         self.raw_dataset = dataset
-        topk = 10
+        topk = 30
 
         # Loading detection features to img_data
         test_image_features_path = r"C:\Users\asmit\Desktop\Guided Research\lxmert\data\mscoco_imgfeat\val2014_obj36.tsv"
         img_data = []
         img_data.extend(load_obj_tsv(test_image_features_path, topk=topk))
 
-        # Creating a dictionary with img_id as the key
+        # Creating a dictionary with img_id as the key for all the objects in tsv
         self.imgid2img = {}
         for img_datum in img_data:
             self.imgid2img[img_datum['img_id']] = img_datum
 
         count = len(self.imgid2img)
         print("Before precossing keys : ", count)
+
         # Change the image_ids so that they match with the ids of annotations
         for key in list(self.imgid2img.keys()):
             if count > 0:
@@ -92,17 +96,30 @@ class NLVR2TorchDataset(Dataset):
         # Filter out the dataset
         # data is a list with annotations(only list of sentences) and image_features in two separate lists
         self.data = {}
+        temp_data = {}
         count = 0
+        count_temp = 0
         for each_datum in self.raw_dataset.data:
             str_key = str(each_datum)
             if str_key in self.imgid2img:
-                temp_img_info = self.imgid2img[str_key]
                 for each_sent in self.raw_dataset.data[each_datum]:
+                    temp_img_info = {}
+                    temp_img_info.update(self.imgid2img[str_key])
+                    sent = ""
+                    sent = sent+each_sent
                     temp_img_info['uid'] = str_key
-                    temp_img_info['sent'] = each_sent
-                    self.data[count] = temp_img_info
+                    temp_img_info['sent'] = sent
+                    temp_data[count] = temp_img_info
                     count += 1
+                count_temp += 1
+        self.data = temp_data
         print("Use %d data in torch dataset" % (len(self.data)))
+
+        n_items = list(islice(self.data.items(), 10))
+
+        #with open('images_with_annotations.json', 'w') as f:
+            #json.dump(temp_data, f)
+
 
     def __len__(self):
         return len(self.data)
@@ -151,14 +168,5 @@ class NLVR2Evaluator:
         score += 1
         return score / len(quesid2ans)
 
-
-
     def dump_result(self, quesid2ans: dict, path):
         return
-        '''
-        with open(path, 'w') as f:
-            for uid, ans in quesid2ans.items():
-                idt = self.dataset.id2datum[uid]["identifier"]
-                ans = 'True' if ans == 1 else 'False'
-                f.write("%s,%s\n" % (idt, ans))
-        '''

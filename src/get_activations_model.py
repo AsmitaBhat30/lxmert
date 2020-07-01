@@ -5,6 +5,7 @@ import torch.nn as nn
 from src.lxrt.modeling import GeLU, BertLayerNorm
 from src.lxrt.entry import LXRTEncoder
 from param import args
+import numpy as np
 
 
 class NLVR2Model(nn.Module):
@@ -45,6 +46,10 @@ class NLVR2Model(nn.Module):
 
         # Extract feature --> Concat
         x = self.lxrt_encoder(sent, (feat, pos))
+        #act_output_numpy = x.detach().cpu().numpy()
+        act_output_numpy = x.numpy()
+        path = r"C:\Users\asmit\Desktop\Guided Research\lxmert\results\new\activations.npy"
+        np.save(path, act_output_numpy)
         x = x.view(-1, self.hid_dim*2)
 
         # Compute logit of answers

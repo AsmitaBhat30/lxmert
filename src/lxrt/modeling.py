@@ -186,7 +186,7 @@ class BertConfig(object):
                  type_vocab_size=2,
                  initializer_range=0.02,
                  flag=False,
-                 modality=""):
+                 modality="",):
         """Constructs BertConfig.
 
         Args:
@@ -417,15 +417,6 @@ class BertOutput(nn.Module):
         activations = hidden_states
         hidden_states = self.dropout(hidden_states)
         hidden_states = self.LayerNorm(hidden_states + input_tensor)
-        if self.con.flag == True:
-            path = r'C:\Users\asmit\Desktop\Guided Research\lxmert\results'
-            if self.con.modality == 'lang':
-                lang_output_numpy = activations.detach().cpu().numpy()
-                np.save(path + r"\lang_output_activations_.npy", lang_output_numpy)
-            else:
-                visn_output_numpy = activations.detach().cpu().numpy()
-
-                np.save(path + r"\visn_output_activations_.npy", visn_output_numpy)
         return hidden_states
 
 
@@ -457,6 +448,7 @@ class LXRTXLayer(nn.Module):
         self.con.flag = True
         self.con.modality = 'lang'
         self.num_cross_layers = num_layers
+
         # The cross-attention Layer
         self.visual_attention = BertCrossattLayer(config)
 
@@ -466,10 +458,11 @@ class LXRTXLayer(nn.Module):
 
         # Intermediate and Output Layers (FFNs)
         self.lang_inter = BertIntermediate(config)
+        #self.con.modality = 'lang'
         self.lang_output = BertOutput(self.con)
         self.visn_inter = BertIntermediate(config)
 
-        self.con.modality = 'visn'
+        #self.con.modality = 'visn'
         self.visn_output = BertOutput(self.con)
 
     def cross_att(self, lang_input, lang_attention_mask, visn_input, visn_attention_mask):
@@ -505,11 +498,27 @@ class LXRTXLayer(nn.Module):
                                                          visn_att_output, visn_attention_mask)
         lang_output, visn_output = self.output_fc(lang_att_output, visn_att_output)
 
-        #lang_output_numpy = lang_output.detach().cpu().numpy()
-        #visn_output_numpy = visn_output.detach().cpu().numpy()
+        lang_output_numpy = lang_output.detach().cpu().numpy()
+        visn_output_numpy = visn_output.detach().cpu().numpy()
 
-        #np.save("lang_output_activations_"+str(self.num_cross_layers)+".npy", lang_output_numpy)
-        #np.save("vision_output_activations_"+str(self.num_cross_layers)+".npy", visn_output_numpy)
+        path_l = r"C:\Users\asmit\Desktop\Guided Research\lxmert\results\lang_output_activations_" + str(self.num_cross_layers) + ".npy"
+
+        path_v = r"C:\Users\asmit\Desktop\Guided Research\lxmert\results\vision_output_activations_" + str(self.num_cross_layers) + ".npy"
+
+        #lang_act_arr = np.load(path_l, allow_pickle=True)
+        #visn_act_arr = np.load(path_v, allow_pickle=True)
+
+        #lang_act_arr = lang_act_arr.tolist()
+        #visn_act_arr = visn_act_arr.tolist()
+
+        #lang_act_arr.append(lang_output_numpy)
+        #visn_act_arr.append(visn_output_numpy)
+
+        #lang_act_arr = np.array(lang_act_arr)
+        #visn_act_arr = np.array(visn_act_arr)
+
+        np.save(path_l, lang_output_numpy)
+        np.save(path_v, visn_output_numpy)
 
         return lang_output, visn_output
 
@@ -1040,6 +1049,7 @@ class LXRTFeatureExtraction(BertPreTrainedModel):
         feat_seq, pooled_output = self.bert(input_ids, token_type_ids, attention_mask,
                                             visual_feats=visual_feats,
                                             visual_attention_mask=visual_attention_mask)
+        #print("Feature sequence and pooled output: ", feat_seq, pooled_output)
         if 'x' == self.mode:
             return pooled_output
         elif 'x' in self.mode and ('l' in self.mode or 'r' in self.mode):
